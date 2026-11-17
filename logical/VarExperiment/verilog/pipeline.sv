@@ -1,12 +1,8 @@
 `timescale 1ps/1ps
 
-//`define  DEBUG_LINES 300
-`ifdef DEBUG_LINES
-    `define DELAY_CTRL_BITS 2
-    `define DATAPATH_WIDTH 6
-`else
-    `include "system_defines"
-`endif
+
+`include "system_defines"
+
 
 
 module pipeline 
@@ -64,8 +60,8 @@ module pipeline
 	end
 
     // these are the trigger snap of the mousetrap. They are done as standard cells to make the flow easier in balancing enable_l2
-	`LOGIC_XNOR2 u_en_l2    (.Z(enable_l2), .A(req_out), .B(last_l2_req))  ;
-	`LOGIC_INV   u_l2_fired (.Z(l2_fired), .A(enable_l2)) ;// l2_fired = !enable_l2;
+	(* preserve = "true" *) `LOGIC_XNOR2 u_en_l2    (.Z(enable_l2), .A(req_out), .B(last_l2_req))  ;
+	(* preserve = "true" *) `LOGIC_INV   u_l2_fired (.Z(l2_fired), .A(enable_l2)) ;// l2_fired = !enable_l2;
 	
 	
 	always_latch begin: l2
