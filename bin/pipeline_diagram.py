@@ -71,10 +71,11 @@ def render(*, taps, req_buffers, lines, buffer_delay, mux4_delay,
     ROW, BH = 14, 8
 
     # ---- timing numbers (ps after the L1 latch output is valid) ----------
-    req_arr = [t * bd + mux + mt for t in taps]      # request closes L2 here
+    tap_ps = [t * bd for t in taps]                  # position of each tap along the request chain (buffers only)
+    req_tot = [t * bd + mux + mt for t in taps]      # full request delay incl. mux4 + mousetrap
     data_ps = [l["buffers"] * bd for l in lines]
     chain_ps = req_buffers * bd
-    t_max = max(data_ps + [chain_ps + mux])
+    t_max = max(data_ps + [chain_ps])
     t_axis = int(math.ceil(t_max / 200.0) * 200)
 
     # ---- geometry --------------------------------------------------------
@@ -172,29 +173,28 @@ def render(*, taps, req_buffers, lines, buffer_delay, mux4_delay,
         poly([(xt(t), R), (xt(t), R + (5 if major else 3))], "#444", 1)
         if major:
             text(xt(t), R + 14, str(t), 7, "middle", "#444", halo=False)
-    text(x0 - 8, R + 4, "ps after L1 Q valid", 7, "end", "#444", halo=False)
+    text(x0 - 8, R + 4, "buffer delay (ps) after L1 Q", 7, "end", "#444", halo=False)
 
     # --------------------------------------- timing arcs + guides (request)
     add('<g class="guides">')
     poly([(x0, R - 22 - 20 * (nt - 1) - 6), (x0, y_bot)], "#999", 0.8, dash="2 3")
     for k in range(nt):
         c = TAP_COLOURS[k % len(TAP_COLOURS)]
-        xk = xt(req_arr[k])
+        xk = xt(tap_ps[k])
         poly([(xk, R - 20 - 20 * k), (xk, y_bot)], c, 0.9, dash="4 3")
-        text(xk, y_bot + 11, "D%d  %s" % (k, fmt(req_arr[k])), 7, "middle", c, halo=True)
+        text(xk, y_bot + 11, "D%d  %s" % (k, fmt(tap_ps[k])), 7, "middle", c, halo=True)
     add("</g>")
     add('<g class="arcs">')
     for k in range(nt):
         c = TAP_COLOURS[k % len(TAP_COLOURS)]
-        xk = xt(req_arr[k])
+        xk = xt(tap_ps[k])
         yk = R - 20 - 20 * k
         add('<path d="M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f" fill="none" stroke="%s" stroke-width="1.6"/>'
             % (x0, yk, (x0 + xk) / 2, yk - 17, xk, yk, c))
         arrow_head(xk, yk, c)
-        lab = "tap%d -> mux D%d:  %d bufs x %s + mux4 %s" % (k, k, taps[k], fmt(bd), fmt(mux))
-        if mt:
-            lab += " + mousetrap %s" % fmt(mt)
-        lab += " = %s ps" % fmt(req_arr[k])
+        lab = "tap%d -> mux D%d:  %d bufs x %s = %s ps" % (k, k, taps[k], fmt(bd), fmt(tap_ps[k]))
+        extra = " (+ mux4 %s" % fmt(mux) + (" + mousetrap %s" % fmt(mt) if mt else "") + " = %s ps total)" % fmt(req_tot[k])
+        lab += extra
         text(xk + 8, yk + 3, lab, 7.5, fill=c, weight="bold")
     add("</g>")
 
@@ -301,24 +301,40 @@ def render(*, taps, req_buffers, lines, buffer_delay, mux4_delay,
         w = dps * S
         tip = ["delayline %d: %s ps target, %d buffers = %s ps" % (i, fmt(l["target"]), N, fmt(dps)),
                "u_delay%d  ->  delayed_data[%d]" % (i, i), ""]
-        for k in range(nt):
-            m = req_arr[k] - dps
-            tip.append("vs req tap D%d (%s ps): data %s by %s ps"
-                       % (k, fmt(req_arr[k]), "EARLY" if m >= 0 else "LATE", fmt(abs(m))))
+        if compact and l.get("taps"):
+            for k, tp in enumerate(l["taps"]):
+                m = tap_ps[k] - tp * bd
+                tip.append("tap D%d: %d bufs = %s ps  vs req D%d (%s ps of buffers): data %s by %s ps"
+                           % (k, tp, fmt(tp * bd), k, fmt(tap_ps[k]), "EARLY" if m >= 0 else "LATE", fmt(abs(m))))
+        else:
+            for k in range(nt):
+                m = tap_ps[k] - dps
+                tip.append("vs req tap D%d (%s ps of buffers): data %s by %s ps"
+                           % (k, fmt(tap_ps[k]), "EARLY" if m >= 0 else "LATE", fmt(abs(m))))
         add('<g class="dl"><title>%s</title>' % esc("\n".join(tip)))
         poly([(x_scan + w_scan, y), (x_L1, y)], WIRE, 0.8)
         latch(x_L1, y, str(i), L1_EDGE, "#fff")
         poly([(x_L1 + 16, y), (x0, y)], DATA, 0.8)
         rect(x0, y - BH / 2, w, BH, DATA_FILL, DATA, 0.9, 1, 'class="box"')
         add('<rect x="%.1f" y="%.1f" width="%.1f" height="%d" fill="url(#bufpat)"/>' % (x0, y - BH / 2, w, BH))
-        poly([(x0 + w, y), (x_L2, y)], DATA, 0.8)
-        latch(x_L2, y, str(i), L2_EDGE, "#fff")
         if compact and l.get("taps"):
+            xm = x0 + w + 8
+            poly([(x0 + w, y), (xm, y)], DATA, 0.8)
             for k, tp in enumerate(l["taps"]):
                 c = TAP_COLOURS[k % len(TAP_COLOURS)]
-                poly([(xt(tp * bd), y - BH / 2 - 2), (xt(tp * bd), y + BH / 2 + 2)], c, 1.2)
+                poly([(xt(tp * bd), y - BH / 2 - 2), (xt(tp * bd), y + BH / 2 + 2)], c, 1.4)
+            add('<path d="M%.1f,%.1f L%.1f,%.1f L%.1f,%.1f L%.1f,%.1f Z" fill="#fff" stroke="%s" stroke-width="1"/>'
+                % (xm, y - 6, xm + 9, y - 3.5, xm + 9, y + 3.5, xm, y + 6, REQ))
+            poly([(xm + 9, y), (x_L2, y)], DATA, 0.8)
+        else:
+            poly([(x0 + w, y), (x_L2, y)], DATA, 0.8)
+        latch(x_L2, y, str(i), L2_EDGE, "#fff")
         add("</g>")
-        text(x0 + w + 4, y + 2.5, "%d bufs  %s ps" % (N, fmt(dps)), 6.2, fill="#4a5a70", cls="lbls")
+        if compact and l.get("taps"):
+            lab, lbx = "/".join(str(t) for t in l["taps"]) + " bufs", x0 + w + 21
+        else:
+            lab, lbx = "%d bufs  %s ps" % (N, fmt(dps)), x0 + w + 4
+        text(lbx, y + 2.5, lab, 6.2, fill="#4a5a70", cls="lbls")
     add("</g>")
 
     # --------------------------------------------------- control: XNOR etc.
@@ -428,7 +444,10 @@ def render(*, taps, req_buffers, lines, buffer_delay, mux4_delay,
          "%d buffers in total (%d data, %d request).  Buffer = %s ps, mux4 = %s ps, L1 clk->Q = %s ps, mousetrap loop = %s ps.  "
          "NRESET asynchronously clears every latch and flop (not drawn)."
          % (total, total - req_buffers, req_buffers, fmt(bd), fmt(mux), fmt(c2q), fmt(mt)), 8, fill="#555", halo=False)
-    text(12, H - 8, "Box length = delay.  Guides: where each mux4 tap's request reaches the L2 latch; a data box ending left of the guide arrives early.",
+    if compact:
+        text(12, H - 32, "Compact: every delay line has taps (coloured ticks = D0..D3, buffer counts listed at the right) and its own mux4, "
+             "select = delay_ctrl[%d:0] (not drawn per row), feeding L2." % (delay_ctrl_bits - 1), 8, fill="#555", halo=False)
+    text(12, H - 8, "Box length = delay.  Guides: position of each mux4 tap along the request chain (buffer delay only; mux4 / mousetrap are added on top). A data box ending left of a guide is shorter.",
          8, fill="#555", halo=False)
 
     # ----------------------------------------------------------- assemble

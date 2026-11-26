@@ -1,0 +1,49 @@
+<!--
+  Implementation section: included by pipeline_doc_template.html when implementation/synthesis.html exists.
+  Each step has its own optional file, looked for relative to the output directory:
+      implementation/synthesis.html  floorplan.html  powerplan.html  place.html  cts.html  route.html  export.html
+  Put the report (tables, numbers, links, images) for a step in its file as HTML and it appears under that step.
+  A step with no file shows as "not run yet". To use other names, edit the lines below.
+-->
+
+<h2>Implementation</h2>
+
+<p>Physical implementation of the generated design, in <code>{{output_dir}}/implementation</code>. Each step shows its report once its file exists.</p>
+
+<div class="flow">
+{{if:implementation/synthesis.html}}<span class="badge done">&#10003; Synthesis</span>{{endif}}{{ifnot:implementation/synthesis.html}}<span class="badge">Synthesis</span>{{endif}}
+{{if:implementation/floorplan.html}}<span class="badge done">&#10003; Floorplan</span>{{endif}}{{ifnot:implementation/floorplan.html}}<span class="badge">Floorplan</span>{{endif}}
+{{if:implementation/powerplan.html}}<span class="badge done">&#10003; Powerplan</span>{{endif}}{{ifnot:implementation/powerplan.html}}<span class="badge">Powerplan</span>{{endif}}
+{{if:implementation/place.html}}<span class="badge done">&#10003; Place</span>{{endif}}{{ifnot:implementation/place.html}}<span class="badge">Place</span>{{endif}}
+{{if:implementation/cts.html}}<span class="badge done">&#10003; CTS</span>{{endif}}{{ifnot:implementation/cts.html}}<span class="badge">CTS</span>{{endif}}
+{{if:implementation/route.html}}<span class="badge done">&#10003; Route</span>{{endif}}{{ifnot:implementation/route.html}}<span class="badge">Route</span>{{endif}}
+{{if:implementation/export.html}}<span class="badge done">&#10003; Export</span>{{endif}}{{ifnot:implementation/export.html}}<span class="badge">Export</span>{{endif}}
+</div>
+
+<h3>Synthesis</h3>
+{{include?:implementation/synthesis.html}}
+{{ifnot:implementation/synthesis.html}}<p class="note">Not run yet.</p>{{endif}}
+
+<h3>Floorplan</h3>
+{{include?:implementation/floorplan.html}}
+{{ifnot:implementation/floorplan.html}}<p class="note">Not run yet.</p>{{endif}}
+
+<h3>Powerplan</h3>
+{{include?:implementation/powerplan.html}}
+{{ifnot:implementation/powerplan.html}}<p class="note">Not run yet.</p>{{endif}}
+
+<h3>Place</h3>
+{{include?:implementation/place.html}}
+{{ifnot:implementation/place.html}}<p class="note">Not run yet.</p>{{endif}}
+
+<h3>CTS</h3>
+{{include?:implementation/cts.html}}
+{{ifnot:implementation/cts.html}}<p class="note">Not run yet.</p>{{endif}}
+
+<h3>Route</h3>
+{{include?:implementation/route.html}}
+{{ifnot:implementation/route.html}}<p class="note">Not run yet.</p>{{endif}}
+
+<h3>Export</h3>
+{{include?:implementation/export.html}}
+{{ifnot:implementation/export.html}}<p class="note">Not run yet.</p>{{endif}}

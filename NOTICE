@@ -1,0 +1,17 @@
+Copyright 2026 The University of Manchester
+
+This product includes software developed by The University of Manchester.
+
+Trademarks
+----------
+Cadence, Genus, Innovus, Tempus and other Cadence product names are
+trademarks or registered trademarks of Cadence Design Systems, Inc.
+This project is independent. It is not affiliated with, sponsored by or
+endorsed by Cadence Design Systems, Inc. Those names are used only to
+describe the tools these scripts drive.
+
+Requirements
+------------
+The EDA scripts included contain no Cadence software, documentation or technology
+data. Users must hold their own valid licenses for the Cadence tools and
+must comply with the terms of those licenses.

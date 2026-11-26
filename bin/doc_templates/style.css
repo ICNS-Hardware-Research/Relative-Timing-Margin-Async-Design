@@ -1,0 +1,38 @@
+:root { --ink:#1d2330; --mut:#5b6472; --line:#d5d9e0; --soft:#f4f6f9; --acc:#d9570b; --blue:#3f6fb0; }
+* { box-sizing: border-box; }
+body { font: 15px/1.55 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--ink);
+       margin: 0; background: #fff; }
+main { max-width: 1200px; margin: 0 auto; padding: 28px 22px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 20px; margin: 38px 0 8px; padding-top: 10px; border-top: 2px solid var(--line); }
+h3 { font-size: 16px; margin: 22px 0 6px; }
+p { margin: 8px 0; }
+.sub { color: var(--mut); font-size: 13px; }
+code, pre, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; }
+code { background: var(--soft); padding: 1px 4px; border-radius: 3px; }
+pre { background: var(--soft); padding: 10px 12px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+table { border-collapse: collapse; margin: 10px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--line); padding: 5px 9px; vertical-align: top; text-align: left; }
+th { background: var(--soft); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; max-width: 100%; }
+.callout { border-left: 4px solid var(--acc); background: #fff6f0; padding: 8px 14px; margin: 12px 0; }
+.note { color: var(--mut); font-size: 13px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 12px 0; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: var(--soft); }
+.card b { display: block; font-size: 22px; }
+.card span { color: var(--mut); font-size: 12.5px; }
+table.tight { font-size: 10px; } table.tight th, table.tight td { padding: 3px 3px; }
+td.mid, th.mid { background: #fff1e6; }
+.open { background: #e6f4e6; } .closed { background: #f7e3e3; }
+details { margin: 10px 0; } summary { cursor: pointer; font-weight: 600; }
+.svgwrap { overflow: auto; border: 1px solid var(--line); border-radius: 6px; max-height: 80vh; }
+ol li, ul li { margin: 3px 0; }
+@media print { main { max-width: none; padding: 0; } .svgwrap { max-height: none; } h2 { break-after: avoid; } }
+
+main { counter-reset: sec; }
+h2 { counter-increment: sec; }
+h2::before { content: counter(sec) ". "; }
+.flow { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.badge { border: 1px solid var(--line); border-radius: 999px; padding: 2px 12px; font-size: 13px; color: var(--mut); background: #fff; }
+.badge.done { background: #e6f4e6; border-color: #9ccf9c; color: #1d4d1d; }

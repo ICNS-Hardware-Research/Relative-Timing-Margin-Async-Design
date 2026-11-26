@@ -5,8 +5,8 @@ import getpass
 import math
 import os
 import sys
-sys.path.append(os.path.join(__file__))
 import pipeline_diagram
+import pipeline_docs
 
 cli = argparse.ArgumentParser()
 cli.add_argument("-t","--target_delay", help="Add target target delay ", type=int, action="append", default=[])
@@ -16,11 +16,18 @@ cli.add_argument("-b","--buffer_delay", help="Typical buffer delay", type=float,
 cli.add_argument("-m","--mousetrap_delay", help="Delay between req hitting latch D and disabling latch", type=float, default=0)
 cli.add_argument("-x","--mux4_delay", help="Delay through mux4 (assuming select preset)", type=float, default=20)
 cli.add_argument("-l","--clk2q_latch", help="Delay through mux4 (assuming select preset)", type=float, default=20)
+cli.add_argument("-o","--output_dir", help="Base directory for all generated files (include/, setup/, doc/, implementation/). Default: current directory", default=".")
+cli.add_argument("-d","--doc_template", help="HTML skeleton the documentation is built from. Default: doc_templates/pipeline_doc_template.html next to this script", default=None)
 cli.add_argument("-c","--compact", help="Share delay buffer across target_delays", action="store_true",  default=False)
 
 
 
 args=cli.parse_args()
+
+def out(*parts):
+    """Path inside the output directory"""
+    return os.path.join(args.output_dir, *parts)
+
 delays_required=[]
 
 commandline=sys.argv[0]+" "
@@ -35,32 +42,36 @@ commandline+="--clk2q_latch="+str(args.clk2q_latch)+" "
 commandline+="--compact="+str(args.clk2q_latch)
 if args.compact:
     commandline+=" --compact"
+if args.output_dir != ".":
+    commandline+=" --output_dir="+args.output_dir
+if args.doc_template:
+    commandline+=" --doc_template="+args.doc_template
 total_buffers=0
 diagram_lines=[]
 
+delay_table=[]
 for target in args.target_delay:
+    row=[]
     for p in range(args.range, -args.range - args.step , -args.step):
 
         value=target/((p/100.0)+1)
         value=int(value*1000.0)
         value=value/1000.0
+        row.append((p,value))
         if not args.compact:
             if value not in delays_required:
                 delays_required.append(value)
         else:
             delays_required.append(value)
+    delay_table.append((target,row))
 
 num=0     
 if not args.compact:
     delays_required.sort(key=float)     
-if not os.path.exists("include"):
-    os.makedirs("include")
-if not os.path.exists("setup"):    
-    os.makedirs("setup")
-if not os.path.exists("doc"):    
-    os.makedirs("doc")
+for d in ("include", "setup", "doc", "implementation"):
+    os.makedirs(out(d), exist_ok=True)
 
-with open("setup/core.setup","w") as fdelay:
+with open(out("setup","core.setup"),"w") as fdelay:
     fdelay.write("export VE_HOME="+os.path.abspath(os.path.dirname(sys.argv[0])+"/..")+"\n")
     fdelay.write("export LOGICAL_PATH=${VE_HOME}/logical\n")
     fdelay.write("export CONSTRAINTS_PATH=\n")
@@ -71,7 +82,7 @@ with open("setup/core.setup","w") as fdelay:
     fdelay.write("export PRIMARY_LIB=\"\"\n")
 
 
-with open("setup/pipeline.setup","w") as fdelay:
+with open(out("setup","pipeline.setup"),"w") as fdelay:
     fdelay.write("#!/usr/bin/env bash\n")
     fdelay.write("# DO NOT MODIFY ---------------------------------------------\n")
     fdelay.write("SOURCE=${BASH_SOURCE[0]}\n")
@@ -86,7 +97,7 @@ with open("setup/pipeline.setup","w") as fdelay:
     fdelay.write(". ${BASE_DIR}/setup/core.setup\n")
     fdelay.write("export TOP_DESIGN=pipeline\n")
 
-with open("setup/VE_block.setup","w") as fdelay:
+with open(out("setup","VE_block.setup"),"w") as fdelay:
     fdelay.write("#!/usr/bin/env bash\n")
     fdelay.write("# DO NOT MODIFY ---------------------------------------------\n")
     fdelay.write("SOURCE=${BASH_SOURCE[0]}\n")
@@ -101,8 +112,8 @@ with open("setup/VE_block.setup","w") as fdelay:
     fdelay.write(". ${BASE_DIR}/setup/core.setup\n")
     fdelay.write("export TOP_DESIGN=VE_block\n")
 
-with open("setup/required_delays.tcl","w") as fdelay:
-    fdelay.write("# This contains the required delay for each part of the experiment\n")
+with open(out("setup","required_delays.tcl"),"w") as fdelay:
+    fdelay.write("# This contains the expected delay for each part of the experiment\n")
     dl=0
     for value in delays_required:
         fdelay.write("set $required_delay("+str(dl)+") "+str(value)+"\n")
@@ -110,14 +121,14 @@ with open("setup/required_delays.tcl","w") as fdelay:
     
     fdelay.close()
 
-with open("include/delays.v","w") as fdelay:
+with open(out("include","delays.v"),"w") as fdelay:
     longest_req = max(args.target_delay) 
     gc=math.ceil((longest_req-args.mux4_delay-args.mousetrap_delay)/args.buffer_delay)
     req_buffers=gc
     tap_delays=sorted(args.target_delay)
     taps = []
     for d in tap_delays:
-        taps.append( math.ceil((d - args.mux4_delay)/args.buffer_delay) )
+        taps.append( math.ceil((d - args.mux4_delay - args.mousetrap_delay)/args.buffer_delay) )
     
     fdelay.write("/**************************************************\n* Generated: "+str(datetime.datetime.now())+"\n* Generated by: "+getpass.getuser()+"\n* COmmand line:\n*    "+commandline+"\n*********************************************/\n\n")
     fdelay.write("(* preserve = \"true\" *) logic ["+str(gc)+":0] intermediate_req;\n")
@@ -169,7 +180,7 @@ with open("include/delays.v","w") as fdelay:
             diagram_lines.append(dict(target=value, buffers=gc[last_tap], taps=list(gc)))
         fdelay.close()
 
-    with open("include/system_defines","w") as fdelay:  
+    with open(out("include","system_defines"),"w") as fdelay:
         fdelay.write("/**************************************************\n* Generated: "+str(datetime.datetime.now())+"\n* Generated by: "+getpass.getuser()+"\n* Command line\n*    "+commandline+"\n*********************************************/\n\n")
         fdelay.write("`ifndef SYSTEM_DEFINES\n  `define SYSTEM_DEFINES 1\n")
         fdelay.write("  `define NUM_EXPS 7\n")
@@ -180,19 +191,37 @@ with open("include/delays.v","w") as fdelay:
             delays=int(len(delays_required)/len(args.target_delay))
 
         fdelay.write("  `define DATAPATH_WIDTH "+str(delays)+"\n") 
-        fdelay.write("  //The following cells can be substituted to technology map to a specific library\n")
-        fdelay.write("  `define IP_DRIVER    PAD_DRIVER_I\n")
-        fdelay.write("  `define IO_DRIVER    PAD_DRIVER_IO\n")
-        fdelay.write("  `define LOGIC_BUFFER BUFFER\n")
-        fdelay.write("  `define LOGIC_MUX4   MUX4\n")
-        fdelay.write("  `define LOGIC_XNOR2  XNOR2\n")
-        fdelay.write("  `define LOGIC_INV    INV\n")
-        fdelay.write("`endif\n")
+        fdelay.write("`endif\n\n")
+        fdelay.write("//The library cells (LOGIC_BUFFER, LOGIC_MUX4 ...) are in cell_defines, which is never overwritten\n")
+        fdelay.write("`include \"cell_defines\"\n")
         fdelay.close()
-      
 
+# The library cells live in their own file that is created once and then left alone,
+# so that a technology mapping edited by hand survives later runs.
+cell_defines=out("include","cell_defines")
+if not os.path.exists(cell_defines):
+    with open(cell_defines,"w") as fcell:
+        fcell.write("/**************************************************\n* Created: "+str(datetime.datetime.now())+"\n* Created by: "+getpass.getuser()+"\n*\n"
+                    "* Library cells used by the generated pipeline.\n"
+                    "* generate_pipeline.py only creates this file if it does not exist.\n"
+                    "* It is NEVER overwritten: edit it to map to a specific technology library\n"
+                    "* (delete it to get these generic names back).\n*********************************************/\n\n")
+        fcell.write("`ifndef CELL_DEFINES\n  `define CELL_DEFINES 1\n")
+        fcell.write("  `define IP_DRIVER    PAD_DRIVER_I\n")
+        fcell.write("  `define IO_DRIVER    PAD_DRIVER_IO\n")
+        fcell.write("  `define LOGIC_BUFFER BUFFER\n")
+        fcell.write("  `define LOGIC_MUX4   MUX4\n")
+        fcell.write("  `define LOGIC_XNOR2  XNOR2\n")
+        fcell.write("  `define LOGIC_INV    INV\n")
+        fcell.write("`endif\n")
+    print("Created "+cell_defines+" (edit it to map to your library; it will not be overwritten)")
+else:
+    print(cell_defines+" already exists - left unchanged")
 
-pipeline_diagram.write_svg("doc/pipeline.svg", taps=taps, req_buffers=req_buffers, lines=diagram_lines,
+pipeline_diagram.write_svg(out("doc","pipeline.svg"), taps=taps, req_buffers=req_buffers, lines=diagram_lines,
     buffer_delay=args.buffer_delay, mux4_delay=args.mux4_delay, mousetrap_delay=args.mousetrap_delay,
     clk2q_latch=args.clk2q_latch, delay_ctrl_bits=2, commandline=commandline, compact=args.compact)
+pipeline_docs.write_html(out("doc","pipeline_doc.html"), svg_path=out("doc","pipeline.svg"), template=args.doc_template, parser=cli, args=args,
+    commandline=commandline, table=delay_table, lines=diagram_lines, taps=taps, req_buffers=req_buffers,
+    total_buffers=total_buffers)
 print("Total buffers used "+str(total_buffers))
