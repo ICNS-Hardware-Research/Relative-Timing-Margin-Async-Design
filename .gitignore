@@ -2,7 +2,9 @@
 wlf*
 *.bak
 constraints/*
+
 implementaion/*.log*
 implementaion/*.cmd*
 .pipeline_setup
-.VE_top_setup
+implementaion/*
+!implementaion/Makefile

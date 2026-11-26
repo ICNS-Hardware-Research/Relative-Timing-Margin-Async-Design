@@ -80,43 +80,59 @@ with open(out("setup","core.setup"),"w") as fdelay:
     fdelay.write("export MMMC_FILE=\n")
     fdelay.write("export LEF_FILES=\"\"\n")
     fdelay.write("export PRIMARY_LIB=\"\"\n")
+    fdelay.write("export WELLTAP_SPACING=\"\"\n")
 
+for s in ["pipeline", "VE_block"]:
+    with open(out("setup",s+".setup"),"w") as fdelay:
+        fdelay.write("#!/usr/bin/env bash\n")
+        fdelay.write("# DO NOT MODIFY ---------------------------------------------\n")
+        fdelay.write("SOURCE=${BASH_SOURCE[0]}\n")
+        fdelay.write("while [ -L \"$SOURCE\" ]; do  # resolve $SOURCE until the file is no longer a symlink\n")
+        fdelay.write("  BASE_DIR=$( cd -P \"$( dirname \"$SOURCE\" )\" >/dev/null 2>&1 && pwd )\n")
+        fdelay.write("  SOURCE=$(readlink \"$SOURCE\")\n")
+        fdelay.write("  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located\n")
+        fdelay.write("done\n")
+        fdelay.write("BASE_DIR=$( cd -P \"$( dirname \"$SOURCE\" )\" >/dev/null 2>&1 && pwd )\n")
+        fdelay.write("#---------------------------------------------\n")
+        fdelay.write("export BASE_DIR=`dirname $BASE_DIR`\n")
+        fdelay.write(". ${BASE_DIR}/setup/core.setup\n")
+        fdelay.write("export TOP_DESIGN="+s+"\n")
+        fdelay.write("#export FLOORPLAN_DIMENSION=\"<dx_core> <dy_core> <margin>\"\n")
 
-with open(out("setup","pipeline.setup"),"w") as fdelay:
-    fdelay.write("#!/usr/bin/env bash\n")
-    fdelay.write("# DO NOT MODIFY ---------------------------------------------\n")
-    fdelay.write("SOURCE=${BASH_SOURCE[0]}\n")
-    fdelay.write("while [ -L \"$SOURCE\" ]; do  # resolve $SOURCE until the file is no longer a symlink\n")
-    fdelay.write("  BASE_DIR=$( cd -P \"$( dirname \"$SOURCE\" )\" >/dev/null 2>&1 && pwd )\n")
-    fdelay.write("  SOURCE=$(readlink \"$SOURCE\")\n")
-    fdelay.write("  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located\n")
-    fdelay.write("done\n")
-    fdelay.write("BASE_DIR=$( cd -P \"$( dirname \"$SOURCE\" )\" >/dev/null 2>&1 && pwd )\n")
-    fdelay.write("#---------------------------------------------\n")
-    fdelay.write("export BASE_DIR=`dirname $BASE_DIR`\n")
-    fdelay.write(". ${BASE_DIR}/setup/core.setup\n")
-    fdelay.write("export TOP_DESIGN=pipeline\n")
+with open(out("implementation","helpers.tcl"),"w") as fdelay:
+    fdelay.write("#----------------------------------------------------------------------")
+    fdelay.write("# Load technology independent helpers")
+    fdelay.write("#----------------------------------------------------------------------")
+    fdelay.write("if { [ info exists VE_HOME ] == 0 } {")
+    fdelay.write("    if { [ info exists ::env(VE_HOME) ]  == 1 } {")
+    fdelay.write("        set VE_HOME $env(VE_HOME)")
+    fdelay.write("    } else {")
+    fdelay.write("        puts \"VE_HOME must be set before executing innovus_stylus.tcl or genus_stylus.tcl\"")
+    fdelay.write("    }")
+    fdelay.write("}")
+    fdelay.write("puts \"NOTE: uncomment BOTH set tcl_interactive lines to reduce noise!\"")
+    fdelay.write("#set tcl_interactive false")
+    fdelay.write("source  ${VE_HOME}/scripts/helpers/env.tcl")
+    fdelay.write("source  $cfg_env(VE_HOME)/scripts/helpers/ve.tcl")
+    fdelay.write("source  $cfg_env(VE_HOME)/scripts/helpers/timing.tcl")
+    fdelay.write("source  $cfg_env(VE_HOME)/scripts/helpers/tech.tcl")
+    fdelay.write("source  $cfg_env(VE_HOME)/scripts/helpers/firm.tcl")
+    fdelay.write("source  $cfg_env(BASE_DIR)/setup/required_delays.tcl")
+    fdelay.write("if {[file exists  $cfg_env(BASE_DIR)/setup/site.tcl] } {")
+    fdelay.write("    source $cfg_env(BASE_DIR)/setup/site.tcl")
+    fdelay.write("}")
+    fdelay.write("#set tcl_interactive true")
 
-with open(out("setup","VE_block.setup"),"w") as fdelay:
-    fdelay.write("#!/usr/bin/env bash\n")
-    fdelay.write("# DO NOT MODIFY ---------------------------------------------\n")
-    fdelay.write("SOURCE=${BASH_SOURCE[0]}\n")
-    fdelay.write("while [ -L \"$SOURCE\" ]; do  # resolve $SOURCE until the file is no longer a symlink\n")
-    fdelay.write("  BASE_DIR=$( cd -P \"$( dirname \"$SOURCE\" )\" >/dev/null 2>&1 && pwd )\n")
-    fdelay.write("  SOURCE=$(readlink \"$SOURCE\")\n")
-    fdelay.write("  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located\n")
-    fdelay.write("done\n")
-    fdelay.write("BASE_DIR=$( cd -P \"$( dirname \"$SOURCE\" )\" >/dev/null 2>&1 && pwd )\n")
-    fdelay.write("#---------------------------------------------\n")
-    fdelay.write("export BASE_DIR=`dirname $BASE_DIR`\n")
-    fdelay.write(". ${BASE_DIR}/setup/core.setup\n")
-    fdelay.write("export TOP_DESIGN=VE_block\n")
 
 with open(out("setup","required_delays.tcl"),"w") as fdelay:
     fdelay.write("# This contains the expected delay for each part of the experiment\n")
     dl=0
+    for value in args.target_delay:
+            fdelay.write("set required_req("+str(dl)+") "+str(value)+"\n")
+            dl=dl+1
+    dl=0
     for value in delays_required:
-        fdelay.write("set $required_delay("+str(dl)+") "+str(value)+"\n")
+        fdelay.write("set required_delay("+str(dl)+") "+str(value)+"\n")
         dl=dl+1
     
     fdelay.close()
@@ -127,7 +143,7 @@ with open(out("include","delays.v"),"w") as fdelay:
     req_buffers=gc
     tap_delays=sorted(args.target_delay)
     taps = []
-    for d in tap_delays:
+    for d in args.target_delay:
         taps.append( math.ceil((d - args.mux4_delay - args.mousetrap_delay)/args.buffer_delay) )
     
     fdelay.write("/**************************************************\n* Generated: "+str(datetime.datetime.now())+"\n* Generated by: "+getpass.getuser()+"\n* COmmand line:\n*    "+commandline+"\n*********************************************/\n\n")
